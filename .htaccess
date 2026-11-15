@@ -1,0 +1,42 @@
+# Apache config for IONOS (and any Apache host).
+# Vite copies everything in public/ into dist/, so this ships with the build.
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Single-page app: anything that isn't a real file or directory is handed
+  # to index.html so react-router can resolve it. Without this, /plan,
+  # /settings and /terms return 404 on a hard refresh or direct link.
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Build assets carry a content hash in the filename, so a given URL can
+  # never change contents. Cache them hard.
+  <FilesMatch "-[A-Za-z0-9_-]{8,}\.(js|css)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # index.html must ALWAYS revalidate. It is the only file that names the
+  # hashed assets, so a cached copy pins visitors to bundles that no longer
+  # exist — which is exactly how the old app got stuck on a stale build.
+  <FilesMatch "^index\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+
+  # Artwork is not content-hashed; cache briefly so replacements show up.
+  <FilesMatch "\.(png|jpg|jpeg|svg|webp|woff2?)$">
+    Header set Cache-Control "public, max-age=86400"
+  </FilesMatch>
+</IfModule>
+
+# Don't serve the SPA shell for a missing asset — return a real 404.
+<IfModule mod_rewrite.c>
+  RewriteCond %{REQUEST_URI} ^/assets/
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule . - [R=404,L]
+</IfModule>
